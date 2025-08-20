@@ -8,6 +8,8 @@ on:
       ECOSCRIPT_APP_PRIVATE_KEY:
         required: true
 
+concurrency: shared-${{ github.workflow }}-${{ github.ref }}
+
 permissions:
   contents: read
 
