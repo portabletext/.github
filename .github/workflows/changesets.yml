@@ -3,10 +3,6 @@ name: Create Release Pull Request or Publish to npm with Changesets
 on:
   workflow_call:
     inputs:
-      repository:
-        required: true
-        description: 'The repository to allow changesets to be created in, to prevent attempting to run changesets from a fork'
-        type: string
       TURBO_TEAM:
         required: false
         description: 'Needed for using turborepo with remote caching'
@@ -29,7 +25,7 @@ permissions:
 
 jobs:
   changesets:
-    if: github.repository == inputs.repository
+    if: github.repository_owner == 'portabletext'
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ inputs.TURBO_TEAM }}
