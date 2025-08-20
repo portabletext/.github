@@ -50,11 +50,13 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           # Make sure the value of GITHUB_TOKEN will not be persisted in repo's config
           persist-credentials: false
-      - id: get-user-id
+      - name: Get app token user id
+        id: get-user-id
         run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-      - run: |
+      - name: Setup git user
+        run: |
           git config --global user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
           git config --global user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com'
       - uses: pnpm/action-setup@v4
@@ -63,7 +65,8 @@ jobs:
           cache: pnpm
           node-version: lts/*
         # temporary until setup-node action comes with npm version that contains oidc setup by default
-      - run: npm install -g npm@latest
+      - name: Update npm to use trusted publishing (OIDC)
+        run: npm install -g npm@latest
       - run: pnpm install
       - name: Create Release Pull Request or Publish to npm
         id: changesets
