@@ -3,9 +3,10 @@ name: Add changeset to Renovate updates
 on:
   workflow_call:
     inputs:
-      config-path:
+      user-login:
         required: true
         type: string
+        description: Should be github.event.pull_request.user.login
     secrets:
       ECOSCRIPT_APP_ID:
         required: true
@@ -22,6 +23,8 @@ jobs:
     steps:
       - name: 'github.event.pull_request.user.login'
         run: echo ${{ github.event.pull_request.user.login }}
+      - name: 'user-login'
+        run: echo ${{ inputs.user-login }}
       - uses: actions/create-github-app-token@v2
         id: app-token
         with:
