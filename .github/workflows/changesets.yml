@@ -17,7 +17,7 @@ on:
         description: 'Needed for using turborepo with remote caching'
       
 
-concurrency: shared-${{ github.workflow }}-${{ github.ref }}
+concurrency: ${{ github.repository_owner_id }}-${{ github.workflow }}-${{ github.ref }}
 
 permissions:
   contents: read # for checkout

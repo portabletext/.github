@@ -8,13 +8,14 @@ on:
       ECOSCRIPT_APP_PRIVATE_KEY:
         required: true
 
-concurrency: shared-${{ github.workflow }}-${{ github.ref }}
+concurrency: ${{ github.repository_owner_id }}-${{ github.workflow }}-${{ github.ref }}
 
 permissions:
   contents: read
 
 jobs:
   run:
+    if: github.repository_owner == 'portabletext'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v2
