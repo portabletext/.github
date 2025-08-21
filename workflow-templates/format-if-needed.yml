@@ -2,8 +2,7 @@ name: Auto format
 
 on:
   push:
-    branches:
-      - $default-branch
+    branches: [$default-branch]
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
