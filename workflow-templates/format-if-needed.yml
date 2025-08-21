@@ -1,0 +1,17 @@
+name: Auto format
+
+on:
+  push:
+    branches:
+      - $default-branch
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: read # for checkout
+
+jobs:
+  if-needed:
+    uses: portabletext/.github/.github/workflows/format.yml@main
+    secrets: inherit
+
