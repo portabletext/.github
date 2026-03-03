@@ -23,7 +23,7 @@ jobs:
         with:
           app-id: ${{ secrets.ECOSCRIPT_APP_ID }}
           private-key: ${{ secrets.ECOSCRIPT_APP_PRIVATE_KEY }}
-      - uses: mscharley/dependency-changesets-action@688113f578e02cc37d62d3f5d11bb705744a802d # v1.2.1
+      - uses: mscharley/dependency-changesets-action@f456a98d34595a68d4b9412368a57533be0584ad # v1.2.3
         with:
           token: ${{ steps.app-token.outputs.token }}
           use-conventional-commits: true
