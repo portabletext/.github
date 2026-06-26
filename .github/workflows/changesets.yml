@@ -59,7 +59,13 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           cache: pnpm
-          node-version: lts/*
+          # Pinned to 22, not lts/* (now 24): changesets' changelog generator
+          # (@changesets/changelog-github -> @changesets/get-github-info ->
+          # node-fetch@2) throws ERR_STREAM_PREMATURE_CLOSE decompressing
+          # GitHub's gzip'd GraphQL response on Node 24, failing `changeset
+          # version`. node-fetch@2 is reliable on Node 22. Revert to lts/*
+          # once changesets drops node-fetch@2.
+          node-version: 22
         # temporary until setup-node action comes with npm version that contains oidc setup by default
       - name: Update npm to use trusted publishing (OIDC)
         run: npm install -g npm@latest
