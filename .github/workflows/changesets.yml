@@ -65,7 +65,7 @@ jobs:
           # GitHub's gzip'd GraphQL response on Node 24, failing `changeset
           # version`. node-fetch@2 is reliable on Node 22. Revert to lts/*
           # once changesets drops node-fetch@2.
-          node-version: 22
+          node-version: 24.18.0
         # temporary until setup-node action comes with npm version that contains oidc setup by default
       - name: Update npm to use trusted publishing (OIDC)
         run: npm install -g npm@latest
