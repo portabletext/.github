@@ -63,7 +63,9 @@ jobs:
           node-version: lts/*
         # temporary until setup-node action comes with npm version that contains oidc setup by default
       - name: Update npm to use trusted publishing (OIDC)
-        run: npm install -g npm@latest
+        # Pinned to npm 11: npm 12 fails to publish with provenance
+        # (`Cannot find module 'sigstore'` in `libnpmpublish/provenance.js`)
+        run: npm install -g npm@11
       - run: pnpm install
       - name: Create Release Pull Request or Publish to npm
         id: changesets
