@@ -7,6 +7,10 @@ on:
         required: false
         description: 'Needed for using turborepo with remote caching'
         type: string
+      version:
+        required: false
+        description: 'Custom version command for changesets/action (defaults to changeset version)'
+        type: string
     secrets:
       ECOSCRIPT_APP_ID:
         required: true
@@ -72,6 +76,7 @@ jobs:
         uses: changesets/action@a45c4d594aa4e2c509dc14a9f2b3b67ba3780d0d # v1.9.0
         with:
           publish: pnpm release
+          version: ${{ inputs.version }}
           setupGitUser: false
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
