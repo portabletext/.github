@@ -1,0 +1,78 @@
+name: Create Release Pull Request or Publish to npm with Changesets v3
+
+# For repos on `@changesets/cli` v3, which requires `changesets/action` v2:
+# the v3 CLI stopped printing the `New tag:` stdout lines the v1 action
+# parses after publishing, and moved versioned prerelease changesets to
+# `.changeset/pre/`, which the v1 action's reader does not see. The v2
+# action rejects repos on the v2 CLI, so the two CLI majors need separate
+# workflows. Delete `changesets.yml` and this comment once every consumer
+# is on the v3 CLI.
+
+on:
+  workflow_call:
+    inputs:
+      TURBO_TEAM:
+        required: false
+        description: 'Needed for using turborepo with remote caching'
+        type: string
+      version:
+        required: false
+        description: 'Custom version command for changesets/action (defaults to changeset version)'
+        type: string
+    secrets:
+      ECOSCRIPT_APP_ID:
+        required: true
+      ECOSCRIPT_APP_PRIVATE_KEY:
+        required: true
+      TURBO_TOKEN:
+        required: false
+        description: 'Needed for using turborepo with remote caching'
+
+concurrency: ${{ github.repository_owner_id }}-${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: read # for checkout
+  id-token: write # to enable use of OIDC for npm provenance
+
+jobs:
+  changesets:
+    if: github.repository_owner == 'portabletext'
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ inputs.TURBO_TEAM }}
+    permissions:
+      contents: read # for checkout
+      id-token: write # to enable use of OIDC for npm provenance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.ECOSCRIPT_CLIENT_ID }}
+          private-key: ${{ secrets.ECOSCRIPT_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          # Make sure the value of GITHUB_TOKEN will not be persisted in repo's config
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          cache: pnpm
+          check-latest: true
+          node-version: lts/*
+        # temporary until setup-node action comes with npm version that contains oidc setup by default
+      - name: Update npm to use trusted publishing (OIDC)
+        # Pinned to npm 11: npm 12 fails to publish with provenance
+        # (`Cannot find module 'sigstore'` in `libnpmpublish/provenance.js`)
+        run: npm install -g npm@11
+      - run: pnpm install
+      - name: Create Release Pull Request or Publish to npm
+        id: changesets
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          publish-script: pnpm release
+          version-script: ${{ inputs.version }}
+          github-token: ${{ steps.app-token.outputs.token }}
+        env:
+          NPM_CONFIG_PROVENANCE: true
