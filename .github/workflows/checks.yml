@@ -1,0 +1,117 @@
+name: Checks
+
+on:
+  workflow_call:
+    inputs:
+      TURBO_TEAM:
+        required: false
+        description: "Needed for using turborepo with remote caching"
+        type: string
+    secrets:
+      TURBO_TOKEN:
+        required: false
+        description: "Needed for using turborepo with remote caching"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  commits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          sparse-checkout: |
+            /.changeset/config.json
+            /package.json
+            /apps/*/package.json
+            /examples/*/package.json
+            /packages/*/package.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .shared-checks
+          sparse-checkout: scripts/check-commits/check-commits.sh
+          sparse-checkout-cone-mode: false
+      - name: Check commits and changesets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .shared-checks/scripts/check-commits/check-commits.sh
+
+  format:
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ inputs.TURBO_TEAM }}
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: Install project dependencies
+        run: pnpm install
+
+      - name: Check format
+        run: pnpm check:format
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: Install project dependencies
+        run: pnpm install
+
+      - name: Check lint
+        run: pnpm check:lint
+
+  types:
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ inputs.TURBO_TEAM }}
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: Install project dependencies
+        run: pnpm install
+
+      - name: check:types
+        run: pnpm check:types
+
+  knip:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+
+      - name: Install project dependencies
+        run: pnpm install
+
+      - name: Check for unused code and dependencies
+        run: pnpm check:knip

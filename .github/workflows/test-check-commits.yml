@@ -1,0 +1,14 @@
+name: Test check-commits
+on:
+  pull_request:
+    paths:
+      - scripts/check-commits/**
+      - .github/workflows/checks.yml
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: bash scripts/check-commits/test/run.sh
