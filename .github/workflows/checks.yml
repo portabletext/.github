@@ -1,0 +1,27 @@
+name: Checks
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  commits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo commits
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo format
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo lint
+  types:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo types
+  knip:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo knip
