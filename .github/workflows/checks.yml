@@ -14,10 +14,12 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
   commits:
+    permissions:
+      contents: read
+      pull-requests: read
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:

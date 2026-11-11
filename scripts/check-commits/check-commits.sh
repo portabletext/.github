@@ -28,7 +28,7 @@ fi
       | tr -d '\r' \
       | awk 'NR == 1 && $0 == "---" { in_frontmatter = 1; next }
              in_frontmatter { if ($0 == "---") in_frontmatter = 0; next }
-             NF { print; exit }')
+             NF && !found { print; found = 1 }')
 
     if ! grep -qxF -- "$first_line" <<< "$subjects"; then
       echo "$changeset opens with a line that is not a commit subject in this PR:"
@@ -60,14 +60,16 @@ unreleased=$( {
   done
 } | sed 's|^@portabletext/||' | sort -u)
 
-# Cache in the parent shell so the follow-up scan reuses the same responses.
+# Populate the cache only when a rule needs files, in the parent shell.
 declare -A commit_files
-while IFS= read -r sha; do
-  commit_files["$sha"]=$(gh api "repos/$REPO/commits/$sha" --paginate --jq '.files[] | "\(.status) \(.filename)"')
-done < <(jq -r '.[].sha' <<< "$commits")
-
-changed_files() {
-  printf '%s\n' "${commit_files[$1]}"
+fetch_commit_files() {
+  local sha=$1
+  if [[ ! -v commit_files[$sha] ]]; then
+    if ! commit_files["$sha"]=$(gh api "repos/$REPO/commits/$sha" --paginate --jq '(.files // [])[] | "\(.status) \(.filename)"'); then
+      echo "Failed to fetch files for commit $sha" >&2
+      exit 1
+    fi
+  fi
 }
 
 ships_changeset() {
@@ -89,7 +91,8 @@ for ((i = 0; i < count; i++)); do
     continue
   fi
 
-  files=$(changed_files "$sha")
+  fetch_commit_files "$sha"
+  files=${commit_files[$sha]}
   if ships_changeset "$files"; then
     continue
   fi
@@ -104,10 +107,13 @@ for ((i = 0; i < count; i++)); do
   if [ "$author" = "renovate[bot]" ]; then
     followed=0
     for ((j = i + 1; j < count; j++)); do
-      if [ "$(jq -r ".[$j].author.login // \"\"" <<< "$commits")" = "ecoscript[bot]" ] &&
-        ships_changeset "$(changed_files "$(jq -r ".[$j].sha" <<< "$commits")")"; then
-        followed=1
-        break
+      if [ "$(jq -r ".[$j].author.login // \"\"" <<< "$commits")" = "ecoscript[bot]" ]; then
+        followup_sha=$(jq -r ".[$j].sha" <<< "$commits")
+        fetch_commit_files "$followup_sha"
+        if ships_changeset "${commit_files[$followup_sha]}"; then
+          followed=1
+          break
+        fi
       fi
     done
     if [ "$followed" -eq 1 ]; then
@@ -138,6 +144,7 @@ for ((i = 0; i < count; i++)); do
     [[ "$subject" == 'Revert "'* ]]; then
     continue
   fi
+  fetch_commit_files "$sha"
   if grep -E '^added \.changeset/[^/]+\.md$' <<< "${commit_files[$sha]}" | grep -qv ' \.changeset/README\.md$'; then
     offenders+="  ${sha:0:7} $subject"$'\n'
   fi

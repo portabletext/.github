@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -e
 
 (
 offenders=$(gh api "repos/$REPO/pulls/$PR_NUMBER/commits" --paginate \
