@@ -73,6 +73,13 @@ for exemption in bot merge revert; do
     revert) commit 'Revert "feat: update"' added ;;
   esac
   check pass "rule 4 allows $exemption"
+  if [[ "$exemption" == bot || "$exemption" == merge ]]; then
+    if grep -q '^repos/test/repo/commits/' "$FIXTURE/calls"; then
+      echo "FAIL: $exemption commit file list fetched"
+      exit 1
+    fi
+    echo "PASS: $exemption commit file list never fetched"
+  fi
 done
 for subject in 'feat!: update' 'fix(scope): update'; do
   reset_fixture
@@ -92,6 +99,12 @@ check pass 'legacy rules 1-3 pass' "$LEGACY"
 printf '\r\nwrong subject\r\n' > "$FIXTURE/content"
 check fail 'rule 2 rejects wrong subject' "$SCRIPT" 'not a commit subject'
 check fail 'legacy rule 2 rejects wrong subject' "$LEGACY" 'not a commit subject'
+reset_fixture
+commit 'fix: large changeset' added
+# A body larger than the pipe buffers exposes early-exit SIGPIPE failures.
+printf '%0300000d\n' 0 >> "$FIXTURE/content"
+check pass 'legacy accepts large changeset (exit 0)' "$LEGACY"
+check pass 'shared accepts large changeset (exit 0)'
 reset_fixture
 commit 'feat: update'
 check fail 'rule 3 rejects missing changeset' "$SCRIPT" 'These fix/feat commits ship no changeset'
@@ -126,4 +139,18 @@ reset_fixture
 commit 'chore: readme' added human 1 .changeset/README.md
 commit 'chore: nested' added human 1 .changeset/pre/change.md
 check pass 'README and nested changesets excluded'
+
+reset_fixture
+commit 'chore: update tooling'
+check pass 'chore without changeset'
+[[ $(grep -c '^repos/test/repo/commits/abcdef1$' "$FIXTURE/calls") == 1 ]]
+echo 'PASS: chore without changeset file list fetched exactly once'
+reset_fixture
+commit 'chore: empty files response'
+printf '{}\n' > "$FIXTURE/abcdef1.json"
+check pass 'missing files treated as empty'
+reset_fixture
+commit 'chore: unavailable files'
+rm "$FIXTURE/abcdef1.json"
+check fail 'commit API failure names commit' "$SCRIPT" 'Failed to fetch files for commit abcdef1'
 printf 'Passed %s checks.\n' "$passed"
