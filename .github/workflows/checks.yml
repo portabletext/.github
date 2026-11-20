@@ -25,16 +25,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          sparse-checkout: |
-            /.changeset/config.json
-            /package.json
-            /apps/*/package.json
-            /examples/*/package.json
-            /packages/*/package.json
-          sparse-checkout-cone-mode: false
-      - uses: actions/checkout@v7
-        with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
           path: .shared-checks
