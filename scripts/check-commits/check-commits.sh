@@ -76,9 +76,25 @@ ships_changeset() {
   grep -E '^(added|modified|renamed) \.changeset/[^/]+\.md$' <<< "$1" | grep -qv ' \.changeset/README\.md$'
 }
 
+# Packages that can release: public manifests changesets doesn't ignore.
+# With none, as in a new package kept private until its first release, no
+# commit ships a release, so none needs a changeset.
+releasable=""
+shopt -s nullglob
+for manifest in package.json apps/*/package.json examples/*/package.json packages/*/package.json; do
+  [ -f "$manifest" ] || continue
+  name=$(jq -r --arg path "$manifest" 'select(.private != true) | .name // $path' "$manifest" | sed 's|^@portabletext/||')
+  if [ -n "$name" ] && ! grep -qxF -- "$name" <<< "$unreleased"; then
+    releasable+="$name"$'\n'
+  fi
+done
+
 offenders=""
 count=$(jq length <<< "$commits")
 for ((i = 0; i < count; i++)); do
+  if [ -z "$releasable" ]; then
+    break
+  fi
   sha=$(jq -r ".[$i].sha" <<< "$commits")
   subject=$(jq -r ".[$i].commit.message | split(\"\n\")[0]" <<< "$commits")
   author=$(jq -r ".[$i].author.login // \"\"" <<< "$commits")

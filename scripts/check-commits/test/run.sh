@@ -18,6 +18,8 @@ reset_fixture() {
   printf '{"name":"@portabletext/app","private":true}\n' > apps/a/package.json
   printf '{"name":"@portabletext/example","private":true}\n' > examples/e/package.json
   printf '{"name":"@portabletext/private","private":true}\n' > packages/p/package.json
+  mkdir -p packages/pub
+  printf '{"name":"@portabletext/public"}\n' > packages/pub/package.json
   echo '[]' > "$FIXTURE/commits.json"
   echo '[]' > "$FIXTURE/pr-files.json"
   : > "$FIXTURE/calls"
@@ -153,4 +155,30 @@ reset_fixture
 commit 'chore: unavailable files'
 rm "$FIXTURE/abcdef1.json"
 check fail 'commit API failure names commit' "$SCRIPT" 'Failed to fetch files for commit abcdef1'
+reset_fixture
+rm -rf apps examples packages
+commit 'feat: first converter'
+check pass 'nothing releasable: unscoped feat without changeset'
+reset_fixture
+rm -rf apps examples packages
+commit 'fix: update'
+commit 'chore: changeset' added
+check fail 'nothing releasable still rejects a changeset outside fix/feat' "$SCRIPT" 'A commit that adds a changeset is fix: or feat:.'
+reset_fixture
+rm -rf apps examples
+printf '{"name":"@portabletext/ignored"}\n' > packages/pub/package.json
+commit 'feat: update'
+check pass 'public package ignored by changesets is not releasable'
+reset_fixture
+commit 'feat: update'
+check fail 'one public package makes unscoped feat need a changeset' "$SCRIPT" 'ship no changeset'
+reset_fixture
+rm package.json
+commit 'chore: no root manifest'
+check pass 'missing root manifest is skipped'
+reset_fixture
+rm -rf apps examples packages
+printf '{}\n' > package.json
+commit 'feat: update'
+check fail 'unnamed public manifest is releasable' "$SCRIPT" 'ship no changeset'
 printf 'Passed %s checks.\n' "$passed"
