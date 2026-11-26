@@ -10,6 +10,7 @@ export FIXTURE="$work/fixture"
 mkdir -p "$FIXTURE" "$work/repo"
 cd "$work/repo"
 passed=0
+failed=0
 reset_fixture() {
   rm -rf .changeset apps examples packages package.json
   mkdir -p .changeset apps/a examples/e packages/p
@@ -45,12 +46,14 @@ check() {
   if { [[ "$expected" == pass ]] && ((result != 0)); } || { [[ "$expected" == fail ]] && ((result == 0)); }; then
     echo "FAIL: $label ($expected, exit $result)"
     cat "$FIXTURE/output"
-    exit 1
+    failed=$((failed + 1))
+    return
   fi
   if [[ -n "$message" ]] && ! grep -qF "$message" "$FIXTURE/output"; then
     echo "FAIL: $label (missing diagnostic: $message)"
     cat "$FIXTURE/output"
-    exit 1
+    failed=$((failed + 1))
+    return
   fi
   passed=$((passed + 1))
   echo "PASS: $label"
@@ -83,10 +86,36 @@ for exemption in bot merge revert; do
     echo "PASS: $exemption commit file list never fetched"
   fi
 done
-for subject in 'feat!: update' 'fix(scope): update'; do
+for subject in 'feat!: update'; do
   reset_fixture
   commit "$subject" added
   check pass "rule 4 allows $subject"
+done
+for subject in 'fix(scope): update' 'feat(x)!: y'; do
+  reset_fixture
+  commit "$subject" added
+  bare=${subject/\(*)/}
+  check fail "rejects $subject" "$SCRIPT" "abcdef1 $subject  ->  $bare"
+done
+reset_fixture
+commit 'chore(scope): update'
+jq '.[0].author = null' "$FIXTURE/commits.json" > "$FIXTURE/next.json"
+mv "$FIXTURE/next.json" "$FIXTURE/commits.json"
+check fail 'rejects scope without author login' "$SCRIPT" 'abcdef1 chore(scope): update  ->  chore: update'
+reset_fixture
+commit 'Revert "fix(x): y"' added
+check pass 'scoped revert passes as on base'
+reset_fixture
+commit 'fix: handle foo(bar)' added
+check pass 'parentheses in description with changeset pass'
+for exemption in bot merge bare; do
+  reset_fixture
+  case "$exemption" in
+    bot) commit 'chore(deps): update' none 'renovate[bot]' ;;
+    merge) commit 'chore(scope): update' none human 2 ;;
+    bare) commit 'Update tooling' ;;
+  esac
+  check pass "scope rule allows $exemption"
 done
 for prefix in fixup squash amend; do
   reset_fixture
@@ -114,18 +143,20 @@ check fail 'legacy rule 3 rejects missing changeset' "$LEGACY" 'These fix/feat c
 for scope in ignored root app example private; do
   reset_fixture
   commit "fix($scope): update"
-  check pass "monorepo unreleased scope $scope"
+  check fail "rejects monorepo scope $scope" "$SCRIPT" "abcdef1 fix($scope): update  ->  fix: update"
+  check fail "scope $scope also reports missing changeset" "$SCRIPT" 'These fix/feat commits ship no changeset'
 done
 reset_fixture
 rm -rf apps examples packages .changeset
 commit 'feat(root): update'
-check pass 'single private root without changeset config'
+check fail 'rejects scope on private root commit' "$SCRIPT" 'abcdef1 feat(root): update  ->  feat: update'
 reset_fixture
 rm -rf apps examples packages
 printf '{}\n' > .changeset/config.json
 printf '{"name":"public-root"}\n' > package.json
 commit 'fix(public-root): update'
-check fail 'single public root without ignore is releasable' "$SCRIPT" 'ship no changeset'
+check fail 'rejects scope on public root commit' "$SCRIPT" 'abcdef1 fix(public-root): update  ->  fix: update'
+check fail 'public root scope also reports missing changeset' "$SCRIPT" 'These fix/feat commits ship no changeset'
 for path in package.json packages/new/package.json; do
   reset_fixture
   commit 'feat: new package' added human 1 "$path"
@@ -181,4 +212,5 @@ rm -rf apps examples packages
 printf '{}\n' > package.json
 commit 'feat: update'
 check fail 'unnamed public manifest is releasable' "$SCRIPT" 'ship no changeset'
-printf 'Passed %s checks.\n' "$passed"
+printf 'Passed %s checks. Failed %s checks.\n' "$passed" "$failed"
+((failed == 0))

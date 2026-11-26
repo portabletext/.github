@@ -46,7 +46,7 @@ fi
 
 )
 
-# Scopes that never release: packages changesets ignores and private
+# Packages that never release: packages changesets ignores and private
 # packages, named with or without the `@portabletext/` prefix.
 unreleased=$( {
   if [ -f .changeset/config.json ]; then
@@ -89,24 +89,31 @@ for manifest in package.json apps/*/package.json examples/*/package.json package
   fi
 done
 
+scope_failed=0
 offenders=""
 count=$(jq length <<< "$commits")
 for ((i = 0; i < count; i++)); do
-  if [ -z "$releasable" ]; then
-    break
-  fi
   sha=$(jq -r ".[$i].sha" <<< "$commits")
   subject=$(jq -r ".[$i].commit.message | split(\"\n\")[0]" <<< "$commits")
   author=$(jq -r ".[$i].author.login // \"\"" <<< "$commits")
 
-  if ! [[ "$subject" =~ ^(fix|feat)(\(([^\)]*)\))?!?: ]]; then
-    continue
+  # Human-authored, non-merge commit subjects take no scope.
+  parents=$(jq ".[$i].parents | length" <<< "$commits")
+  if [[ "$author" != *'[bot]' ]] && [ "$parents" -le 1 ] &&
+    [[ "$subject" =~ ^([a-zA-Z]+)\([^\)]*\)(!?:.*)$ ]]; then
+    bare="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"
+    echo 'Commit subjects take no scope:'
+    printf '  %s %s  ->  %s\n' "${sha:0:7}" "$subject" "$bare"
+    scope_failed=1
   fi
-  scope=${BASH_REMATCH[3]}
-  if [ -n "$scope" ] && grep -qxF -- "$scope" <<< "$unreleased"; then
+
+  if [ -z "$releasable" ]; then
     continue
   fi
 
+  if ! [[ "$subject" =~ ^(fix|feat)(\(([^\)]*)\))?!?: ]]; then
+    continue
+  fi
   fetch_commit_files "$sha"
   files=${commit_files[$sha]}
   if ships_changeset "$files"; then
@@ -170,5 +177,9 @@ if [ -n "$offenders" ]; then
   echo "These commits add a changeset without a fix/feat subject:"
   printf '%s' "$offenders"
   echo "A commit that adds a changeset is fix: or feat:. Retype it, or move the changeset into the fix/feat commit it describes."
+  exit 1
+fi
+
+if [ "$scope_failed" -eq 1 ]; then
   exit 1
 fi
